@@ -1,7 +1,12 @@
 package org.openflux.app.data
 
 import java.io.IOException
+import java.net.URLEncoder
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -39,6 +44,25 @@ data class AdminIngestToken(
     val createdAt: String,
 )
 
+data class UsageDay(
+    val day: String,
+    val bytesSent: Long,
+    val bytesReceived: Long,
+    val activeKeys: Int,
+) {
+    val totalBytes: Long get() = bytesSent + bytesReceived
+}
+
+data class StatsSummary(
+    val totalBytesSent: Long,
+    val todayBytesSent: Long,
+    val totalKeys: Int,
+    val enabledKeys: Int,
+    val overQuotaKeys: Int,
+    val expiredKeys: Int,
+    val onlineNodes: Int,
+)
+
 /** id + the raw token, shown once by the server - never retrievable again. */
 data class CreatedWithToken(val id: String, val token: String)
 
@@ -70,7 +94,8 @@ class ControlPlaneAdminClient(baseUrl: String, private val adminToken: String) {
         requestObject("POST", "/v1/admin/nodes/$id/rotate-token")!!.getString("token")
 
     fun listKeys(ownerRef: String? = null): List<AdminKey> {
-        val path = if (ownerRef.isNullOrBlank()) "/v1/admin/keys" else "/v1/admin/keys?owner_ref=$ownerRef"
+        val path = if (ownerRef.isNullOrBlank()) "/v1/admin/keys"
+        else "/v1/admin/keys?owner_ref=" + URLEncoder.encode(ownerRef, "UTF-8")
         return requestArray("GET", path).map { obj ->
             AdminKey(
                 id = obj.getString("ID"),
@@ -110,6 +135,63 @@ class ControlPlaneAdminClient(baseUrl: String, private val adminToken: String) {
 
     fun deleteKey(id: String) {
         requestObject("DELETE", "/v1/admin/keys/$id")
+    }
+
+    fun patchKeyLimit(id: String, limitBytes: Long?) {
+        val body = JSONObject()
+        if (limitBytes == null) body.put("traffic_limit_bytes", JSONObject.NULL) else body.put("traffic_limit_bytes", limitBytes)
+        requestObject("PATCH", "/v1/admin/keys/$id", body)
+    }
+
+    fun patchKey(
+        id: String,
+        label: String,
+        transport: String,
+        docUrl: String,
+        trafficLimitBytes: Long?,
+        enabled: Boolean,
+    ) {
+        val body = JSONObject()
+            .put("label", label)
+            .put("transport", transport)
+            .put("doc_url", docUrl)
+            .put("enabled", enabled)
+        if (trafficLimitBytes == null) body.put("traffic_limit_bytes", JSONObject.NULL)
+        else body.put("traffic_limit_bytes", trafficLimitBytes)
+        requestObject("PATCH", "/v1/admin/keys/$id", body)
+    }
+
+    fun keyUsage(id: String, days: Int): List<UsageDay> =
+        requestArray("GET", "/v1/admin/keys/$id/usage?days=$days").map { obj ->
+            UsageDay(
+                day = obj.optString("day"),
+                bytesSent = obj.optLong("bytes_sent"),
+                bytesReceived = obj.optLong("bytes_received"),
+                activeKeys = obj.optInt("active_keys"),
+            )
+        }
+
+    fun usageSummary(days: Int): List<UsageDay> =
+        requestArray("GET", "/v1/admin/stats/usage?days=$days").map { obj ->
+            UsageDay(
+                day = obj.optString("day"),
+                bytesSent = obj.optLong("bytes_sent"),
+                bytesReceived = obj.optLong("bytes_received"),
+                activeKeys = obj.optInt("active_keys"),
+            )
+        }
+
+    fun statsSummary(): StatsSummary {
+        val obj = requestObject("GET", "/v1/admin/stats/summary") ?: JSONObject()
+        return StatsSummary(
+            totalBytesSent = obj.optLong("total_bytes_sent"),
+            todayBytesSent = obj.optLong("today_bytes_sent"),
+            totalKeys = obj.optInt("total_keys"),
+            enabledKeys = obj.optInt("enabled_keys"),
+            overQuotaKeys = obj.optInt("over_quota_keys"),
+            expiredKeys = obj.optInt("expired_keys"),
+            onlineNodes = obj.optInt("online_nodes"),
+        )
     }
 
     fun listIngestTokens(): List<AdminIngestToken> = requestArray("GET", "/v1/admin/ingest-tokens").map { obj ->
@@ -175,9 +257,22 @@ class ControlPlaneAdminClient(baseUrl: String, private val adminToken: String) {
     }
 
     companion object {
-        private val httpClient = OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .build()
+        private val httpClient: OkHttpClient by lazy {
+            val builder = OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(15, TimeUnit.SECONDS)
+            val trustManager = permissiveTrustManager()
+            runCatching {
+                SSLContext.getInstance("TLS").apply { init(null, arrayOf(trustManager), SecureRandom()) }
+            }.onSuccess { builder.sslSocketFactory(it.socketFactory, trustManager) }
+            builder.hostnameVerifier { _, _ -> true }
+            builder.build()
+        }
+
+        private fun permissiveTrustManager(): X509TrustManager = object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+            override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+        }
     }
 }

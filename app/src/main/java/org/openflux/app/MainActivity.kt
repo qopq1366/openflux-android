@@ -79,6 +79,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestConnect(profileId: String) {
+        stopSocks5Service()
         val prepareIntent = VpnService.prepare(this)
         if (prepareIntent != null) {
             pendingProfileId = profileId
@@ -105,6 +106,9 @@ class MainActivity : ComponentActivity() {
 
     // No VpnService.prepare() dance needed: OpenFluxSocks5Service never touches VpnService.
     private fun startSocks5Service(profileId: String) {
+        // Both modes are mutually exclusive in the Go layer, so switching has to tear the
+        // other one down first - leaving it to a disabled button is what used to wedge the UI.
+        disconnect()
         val intent = Intent(this, OpenFluxSocks5Service::class.java).apply {
             action = OpenFluxSocks5Service.ACTION_START
             putExtra(OpenFluxSocks5Service.EXTRA_PROFILE_ID, profileId)

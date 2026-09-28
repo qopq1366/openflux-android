@@ -147,8 +147,9 @@ fun HomeScreen(
                 ConnectionButton(
                     state = buttonState,
                     label = statusLabel(status, channelReady, lastRetryDetail),
-                    // Disabled only when idle with no profile picked; every other state has a real cancel/disconnect action.
-                    enabled = (buttonState != ConnectionButtonState.Idle || activeProfile != null) && !socks5Active,
+                    // Starting one mode now stops the other, so neither button has to be disabled
+                    // for the other - that coupling is what used to leave both unusable.
+                    enabled = buttonState != ConnectionButtonState.Idle || activeProfile != null,
                     onClick = {
                         if (connected) {
                             onDisconnectRequested()
@@ -170,7 +171,7 @@ fun HomeScreen(
                 Socks5Row(
                     active = socks5Active,
                     port = socks5Port,
-                    enabled = activeProfile != null && !connected,
+                    enabled = activeProfile != null,
                     onStart = { activeProfile?.let { onSocks5Requested(it.id) } },
                     onStop = onSocks5StopRequested,
                 )

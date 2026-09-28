@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -44,7 +45,12 @@ fun DeployKeysTab(viewModel: DeployServerDetailViewModel) {
     var transport by remember { mutableStateOf("yandex") }
     var docUrl by remember { mutableStateOf("") }
     var trafficLimitGb by remember { mutableStateOf("") }
-    var ownerRef by remember { mutableStateOf("") }
+    var editing by remember { mutableStateOf<AdminKey?>(null) }
+    var editLabel by remember { mutableStateOf("") }
+    var editTransport by remember { mutableStateOf("yandex") }
+    var editDocUrl by remember { mutableStateOf("") }
+    var editLimitGb by remember { mutableStateOf("") }
+    var editEnabled by remember { mutableStateOf(true) }
 
     LazyColumn(Modifier.fillMaxSize()) {
         item {
@@ -93,7 +99,7 @@ fun DeployKeysTab(viewModel: DeployServerDetailViewModel) {
                     OutlinedTextField(
                         value = docUrl,
                         onValueChange = { docUrl = it },
-                        label = { Text(stringResource(R.string.deploy_keys_doc_url)) },
+                        label = { Text(stringResource(docUrlLabelRes(transport))) },
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     )
                     OutlinedTextField(
@@ -102,20 +108,13 @@ fun DeployKeysTab(viewModel: DeployServerDetailViewModel) {
                         label = { Text(stringResource(R.string.deploy_keys_traffic_limit_gb)) },
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     )
-                    OutlinedTextField(
-                        value = ownerRef,
-                        onValueChange = { ownerRef = it },
-                        label = { Text(stringResource(R.string.deploy_keys_owner_ref)) },
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    )
                     Button(
                         onClick = {
-                            viewModel.createKey(label, docUrl, trafficLimitGb.toDoubleOrNull(), ownerRef, transport)
+                            viewModel.createKey(label, docUrl, trafficLimitGb.toDoubleOrNull(), "", transport)
                             label = ""
                             transport = "yandex"
                             docUrl = ""
                             trafficLimitGb = ""
-                            ownerRef = ""
                         },
                         modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                     ) { Text(stringResource(R.string.deploy_keys_create)) }
@@ -137,14 +136,117 @@ fun DeployKeysTab(viewModel: DeployServerDetailViewModel) {
                 key = key,
                 onToggleEnabled = { viewModel.setKeyEnabled(key.id, !key.enabled) },
                 onRotateToken = { viewModel.rotateKeyToken(key.id) },
+                onEdit = {
+                    editing = key
+                    editLabel = key.label
+                    editTransport = key.transport
+                    editDocUrl = key.docUrl
+                    editLimitGb = if (key.trafficLimitBytes != null) {
+                        "%.1f".format(key.trafficLimitBytes.toDouble() / 1024 / 1024 / 1024)
+                    } else {
+                        ""
+                    }
+                    editEnabled = key.enabled
+                },
                 onDelete = { viewModel.deleteKey(key.id) },
             )
+        }
+
+        editing?.let { target ->
+            item {
+                Card(Modifier.fillMaxWidth().padding(16.dp)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            stringResource(R.string.deploy_keys_edit_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        OutlinedTextField(
+                            value = editLabel,
+                            onValueChange = { editLabel = it },
+                            label = { Text(stringResource(R.string.deploy_keys_label)) },
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp),
+                        ) {
+                            listOf("yandex", "volga", "mailru", "boards", "mts").forEach { option ->
+                                FilterChip(
+                                    selected = editTransport == option,
+                                    onClick = { editTransport = option },
+                                    label = { Text(option) },
+                                    modifier = Modifier.padding(end = 8.dp),
+                                )
+                            }
+                        }
+                        OutlinedTextField(
+                            value = editDocUrl,
+                            onValueChange = { editDocUrl = it },
+                            label = { Text(stringResource(docUrlLabelRes(editTransport))) },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        )
+                        OutlinedTextField(
+                            value = editLimitGb,
+                            onValueChange = { editLimitGb = it },
+                            label = { Text(stringResource(R.string.deploy_keys_traffic_limit_gb)) },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(stringResource(R.string.deploy_keys_edit_enabled))
+                            androidx.compose.material3.Switch(checked = editEnabled, onCheckedChange = { editEnabled = it })
+                        }
+                        Text(
+                            stringResource(R.string.deploy_keys_edit_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            OutlinedButton(onClick = { editing = null }, modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.deploy_keys_edit_cancel))
+                            }
+                            Button(
+                                onClick = {
+                                    viewModel.updateKey(
+                                        target.id,
+                                        editLabel,
+                                        editTransport,
+                                        editDocUrl,
+                                        editLimitGb.toDoubleOrNull(),
+                                        editEnabled,
+                                    )
+                                    editing = null
+                                },
+                                modifier = Modifier.weight(1f),
+                            ) { Text(stringResource(R.string.deploy_keys_saved)) }
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
+internal fun docUrlLabelRes(transport: String): Int = when (transport) {
+    "mts" -> R.string.deploy_keys_doc_url_mts
+    "boards" -> R.string.deploy_keys_doc_url_boards
+    "mailru" -> R.string.deploy_keys_doc_url_mailru
+    else -> R.string.deploy_keys_doc_url_yandex
+}
+
 @Composable
-private fun KeyRow(key: AdminKey, onToggleEnabled: () -> Unit, onRotateToken: () -> Unit, onDelete: () -> Unit) {
+private fun KeyRow(
+    key: AdminKey,
+    onToggleEnabled: () -> Unit,
+    onRotateToken: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -153,10 +255,18 @@ private fun KeyRow(key: AdminKey, onToggleEnabled: () -> Unit, onRotateToken: ()
         ) {
             Column(Modifier.weight(1f)) {
                 Text(key.label.ifBlank { "(no label)" }, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(formatBytes(key.bytesSentTotal + key.bytesReceivedTotal) + " used")
+                Text(
+                    key.transport + " · " + formatBytes(key.bytesSentTotal + key.bytesReceivedTotal) + " used",
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             OutlinedButton(onClick = onToggleEnabled) {
                 Text(stringResource(if (key.enabled) R.string.deploy_keys_disable else R.string.deploy_keys_enable))
+            }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.deploy_keys_edit))
             }
             IconButton(onClick = onRotateToken) {
                 Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.deploy_keys_rotate_token))

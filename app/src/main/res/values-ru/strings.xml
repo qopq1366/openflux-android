@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">OpenFlux</string>
 
@@ -251,4 +251,36 @@
     <string name="home_socks5_hint">Укажите этот адрес в настройках прокси нужного приложения — через него пойдёт трафик только этого приложения, в отличие от полного VPN-режима.</string>
     <string name="captcha_dialog_title">Решите проверку, чтобы продолжить</string>
     <string name="captcha_dialog_continue">Продолжить</string>
+	<string name="deploy_keys_edit_enabled">Включён</string>
+	<string name="deploy_keys_edit_cancel">Отмена</string>
+	<string name="deploy_refresh">Обновить</string>
+	<string name="deploy_detail_tab_stats">Трафик</string>
+	<string name="deploy_keys_updated">Ключ обновлён</string>
+	<string name="deploy_keys_load_failed">Не удалось загрузить ключи: %1$s</string>
+	<string name="deploy_nodes_load_failed">Не удалось загрузить ноды: %1$s</string>
+	<string name="deploy_tokens_load_failed">Не удалось загрузить ingest-токены: %1$s</string>
+	<string name="deploy_usage_days">дн</string>
+	<string name="deploy_usage_total">Всего отправлено</string>
+	<string name="deploy_usage_today">Сегодня</string>
+	<string name="deploy_usage_keys">Ключей включено</string>
+	<string name="deploy_usage_nodes_online">Нод онлайн</string>
+	<string name="deploy_usage_over_quota">Превысили лимит</string>
+	<string name="deploy_usage_all_keys">Все ключи</string>
+	<string name="deploy_usage_total_in_period">Итого за период: %1$s</string>
+	<string name="deploy_usage_no_data_hint">За этот период трафика нет. Учёт ведут exit-ноды, поэтому цифры останутся нулевыми, пока нода не зарегистрирована и не рапортует.</string>
+	<string name="deploy_keys_edit">Изменить</string>
+	<string name="deploy_keys_edit_title">Изменение ключа</string>
+	<string name="deploy_keys_edit_hint">При смене ссылки, транспорта или шифрования нода перезапустит ключ в течение нескольких секунд.</string>
+	<string name="deploy_keys_doc_url_mts">Ссылка на MTS Link Доски</string>
+	<string name="deploy_keys_doc_url_boards">Ссылка на Яндекс Доски</string>
+	<string name="deploy_keys_doc_url_mailru">Ссылка на Mail.ru Boards</string>
+	<string name="deploy_keys_doc_url_yandex">Ссылка на Yandex Docs</string>
+	<string name="deploy_keys_saved">Сохранено</string>
+	<string name="profile_edit_send_cookies">Передать куки на exit-ноду</string>
+	<string name="profile_edit_send_cookies_hint">Решите проверку Яндекса в окне браузера — куки уедут напрямую на controlplane и попадут к ноде, которая держит этот ключ. Нода проверку сама не проходит, но куки, решённые здесь, использовать может.</string>
+	<string name="profile_edit_send_cookies_ok">Куки отправлены — нода подхватит их при следующем опросе.</string>
+	<string name="profile_edit_send_cookies_no_url">Сначала укажите Control URL в этом профиле.</string>
+	<string name="profile_edit_send_cookies_no_token">У профиля нет токена ключа.</string>
+	<string name="profile_edit_send_cookies_rejected">Controlplane отклонил куки.</string>
+	<string name="profile_edit_send_cookies_network">Не удалось достучаться до controlplane.</string>
 </resources>

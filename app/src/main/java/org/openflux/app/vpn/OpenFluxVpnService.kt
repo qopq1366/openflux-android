@@ -277,6 +277,9 @@ class OpenFluxVpnService : VpnService(), Protector {
         runCatching { Mobile.stopTunnel() }
         // Without this, onRevoke's delayed reconnect coroutine could still call connect() against a destroyed Service.
         serviceScope.cancel()
+        // Same reason as OpenFluxSocks5Service: the shared callback must not keep reporting a
+        // live tunnel after the Service is gone, or the SOCKS5 row stays disabled forever.
+        callback.onStatus("stopped")
         super.onDestroy()
     }
 

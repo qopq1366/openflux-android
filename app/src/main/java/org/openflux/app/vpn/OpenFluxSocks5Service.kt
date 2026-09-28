@@ -95,6 +95,10 @@ class OpenFluxSocks5Service : Service() {
     override fun onDestroy() {
         connectJob?.cancel()
         runCatching { Mobile.stopSocks5Proxy() }
+        // The callback object outlives this Service instance, so a teardown that does not
+        // publish a terminal status leaves the Home screen believing the proxy is still up -
+        // which disables the VPN button with nothing left to stop.
+        callback.onStatus("stopped")
         serviceScope.cancel()
         super.onDestroy()
     }

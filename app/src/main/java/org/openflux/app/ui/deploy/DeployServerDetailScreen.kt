@@ -14,6 +14,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -22,6 +23,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -53,6 +55,8 @@ import org.openflux.app.data.DeployServer
 import org.openflux.app.data.DeployServerRepository
 import org.openflux.app.data.DeployStatus
 import org.openflux.app.data.KeyToken
+import org.openflux.app.data.StatsSummary
+import org.openflux.app.data.UsageDay
 import org.openflux.app.deploy.DeployManager
 
 /** text + whether it represents an error, shown as a dismissible banner. */
@@ -78,6 +82,30 @@ class DeployServerDetailViewModel(
     private val _message = MutableStateFlow<DetailMessage?>(null)
     val message: StateFlow<DetailMessage?> = _message
 
+    private val _loading = MutableStateFlow(false)
+    val loading: StateFlow<Boolean> = _loading
+
+    private val _loadError = MutableStateFlow<String?>(null)
+    val loadError: StateFlow<String?> = _loadError
+
+    private val _usage = MutableStateFlow<List<UsageDay>>(emptyList())
+    val usage: StateFlow<List<UsageDay>> = _usage
+
+    private val _keyUsage = MutableStateFlow<List<UsageDay>>(emptyList())
+    val keyUsage: StateFlow<List<UsageDay>> = _keyUsage
+
+    private val _usageSummary = MutableStateFlow<StatsSummary?>(null)
+    val usageSummary: StateFlow<StatsSummary?> = _usageSummary
+
+    private val _usageError = MutableStateFlow<String?>(null)
+    val usageError: StateFlow<String?> = _usageError
+
+    private val _usageDays = MutableStateFlow(30)
+    val usageDays: StateFlow<Int> = _usageDays
+
+    private val _usageKeyId = MutableStateFlow<String?>(null)
+    val usageKeyId: StateFlow<String?> = _usageKeyId
+
     private var adminClient: ControlPlaneAdminClient? = null
 
     fun load() {
@@ -101,10 +129,39 @@ class DeployServerDetailViewModel(
     fun refreshAll() {
         viewModelScope.launch(Dispatchers.IO) {
             val client = adminClient ?: return@launch
-            runCatching { _nodes.value = client.listNodes() }
-            runCatching { _keys.value = client.listKeys() }
-            runCatching { _ingestTokens.value = client.listIngestTokens() }
+            _loading.value = true
+            val failures = mutableListOf<String>()
+            runCatching { _nodes.value = client.listNodes() }.onFailure { failures.add(app.getString(R.string.deploy_nodes_load_failed, it.message.orEmpty())) }
+            runCatching { _keys.value = client.listKeys() }.onFailure { failures.add(app.getString(R.string.deploy_keys_load_failed, it.message.orEmpty())) }
+            runCatching { _ingestTokens.value = client.listIngestTokens() }.onFailure { failures.add(app.getString(R.string.deploy_tokens_load_failed, it.message.orEmpty())) }
+            _loadError.value = failures.firstOrNull()
+            _loading.value = false
         }
+    }
+
+    fun loadUsage(days: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val client = adminClient ?: return@launch
+            runCatching {
+                _usage.value = client.usageSummary(days)
+                _keyUsage.value = client.keyUsage(_usageKeyId.value.orEmpty(), days)
+                _usageSummary.value = client.statsSummary()
+                _usageError.value = null
+            }.onFailure {
+                _usage.value = emptyList()
+                _usageError.value = it.message ?: app.getString(R.string.deploy_generic_error)
+            }
+        }
+    }
+
+    fun selectUsageKey(id: String) {
+        _usageKeyId.value = id
+        loadUsage(_usageDays.value)
+    }
+
+    fun setUsageDays(days: Int) {
+        _usageDays.value = days
+        loadUsage(days)
     }
 
     fun createNode(name: String, maxKeys: Int) = runAction { client ->
@@ -143,6 +200,20 @@ class DeployServerDetailViewModel(
 
     fun deleteKey(id: String) = runAction { client ->
         client.deleteKey(id)
+        _keys.value = client.listKeys()
+    }
+
+    fun updateKey(
+        id: String,
+        label: String,
+        transport: String,
+        docUrl: String,
+        trafficLimitGb: Double?,
+        enabled: Boolean,
+    ) = runAction { client ->
+        val bytes = trafficLimitGb?.let { (it * 1024 * 1024 * 1024).toLong() }
+        client.patchKey(id, label, transport, docUrl, bytes, enabled)
+        _message.value = DetailMessage(app.getString(R.string.deploy_keys_updated), isError = false)
         _keys.value = client.listKeys()
     }
 
@@ -188,14 +259,24 @@ fun DeployServerDetailScreen(serverId: String, onEditServer: (String) -> Unit) {
     val tabs = listOf(
         R.string.deploy_detail_tab_log,
         R.string.deploy_detail_tab_keys,
+        R.string.deploy_detail_tab_stats,
         R.string.deploy_detail_tab_settings,
     )
+    val loading by viewModel.loading.collectAsState()
+    val loadError by viewModel.loadError.collectAsState()
+
+    LaunchedEffect(tabIndex) {
+        if (tabIndex == 2) viewModel.loadUsage(viewModel.usageDays.value)
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(server?.name.orEmpty()) },
                 actions = {
+                    IconButton(onClick = viewModel::refreshAll, enabled = !loading) {
+                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.deploy_refresh))
+                    }
                     IconButton(onClick = { onEditServer(serverId) }) {
                         Icon(Icons.Filled.Edit, contentDescription = null)
                     }
@@ -247,6 +328,16 @@ fun DeployServerDetailScreen(serverId: String, onEditServer: (String) -> Unit) {
                 }
             }
 
+            loadError?.let { err ->
+                Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    Text(
+                        err,
+                        modifier = Modifier.padding(12.dp),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+
             TabRow(selectedTabIndex = tabIndex) {
                 tabs.forEachIndexed { index, labelRes ->
                     Tab(
@@ -262,7 +353,8 @@ fun DeployServerDetailScreen(serverId: String, onEditServer: (String) -> Unit) {
                 when (tabIndex) {
                     0 -> DeployLogTab(serverId)
                     1 -> DeployKeysTab(viewModel)
-                    2 -> DeploySettingsTab(viewModel)
+                    2 -> DeployUsageTab(viewModel)
+                    else -> DeploySettingsTab(viewModel)
                 }
             }
         }
@@ -270,8 +362,7 @@ fun DeployServerDetailScreen(serverId: String, onEditServer: (String) -> Unit) {
 }
 
 @Composable
-private fun DeployLogTab(serverId: String) {
-    val logsMap by DeployManager.logs.collectAsState()
+private fun DeployLogTab(serverId: String) {    val logsMap by DeployManager.logs.collectAsState()
     val lines = logsMap[serverId].orEmpty()
     LazyColumn(Modifier.fillMaxSize().padding(12.dp)) {
         items(lines) { line ->
