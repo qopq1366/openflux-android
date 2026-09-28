@@ -115,9 +115,12 @@ fun HomeScreen(
     val stats by OpenFluxVpnService.callback.stats.collectAsState()
     val lastRetryDetail by OpenFluxVpnService.callback.lastRetryDetail.collectAsState()
     val connected = status is TunnelStatus.Connected || status is TunnelStatus.Connecting
+    // A green "connected" button over a channel that never came up reads as a working tunnel,
+    // so anything short of channelReady stays in the connecting state.
+    val channelUp = status is TunnelStatus.Connected && channelReady
     val buttonState = when {
-        status is TunnelStatus.Connected -> ConnectionButtonState.Connected
-        status is TunnelStatus.Connecting -> ConnectionButtonState.Connecting
+        channelUp -> ConnectionButtonState.Connected
+        status is TunnelStatus.Connected || status is TunnelStatus.Connecting -> ConnectionButtonState.Connecting
         else -> ConnectionButtonState.Idle
     }
 
@@ -130,6 +133,10 @@ fun HomeScreen(
     val vpnCaptchaUrl by OpenFluxVpnService.callback.captchaDocUrl.collectAsState()
     val socks5CaptchaUrl by OpenFluxSocks5Service.callback.captchaDocUrl.collectAsState()
     val captchaUrl = vpnCaptchaUrl ?: socks5CaptchaUrl
+    val vpnCaptchaPending by OpenFluxVpnService.callback.captchaPending.collectAsState()
+    val socks5CaptchaPending by OpenFluxSocks5Service.callback.captchaPending.collectAsState()
+    val captchaPending = vpnCaptchaPending || socks5CaptchaPending
+    val captchaDialogShowing = captchaUrl != null
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -146,7 +153,7 @@ fun HomeScreen(
             ) {
                 ConnectionButton(
                     state = buttonState,
-                    label = statusLabel(status, channelReady, lastRetryDetail),
+                    label = statusLabel(status, channelReady, lastRetryDetail, captchaPending, captchaDialogShowing),
                     // Starting one mode now stops the other, so neither button has to be disabled
                     // for the other - that coupling is what used to leave both unusable.
                     enabled = buttonState != ConnectionButtonState.Idle || activeProfile != null,
@@ -158,6 +165,18 @@ fun HomeScreen(
                         }
                     },
                 )
+
+                if (captchaPending && !captchaDialogShowing) {
+                    TextButton(
+                        onClick = {
+                            OpenFluxVpnService.callback.reopenCaptchaPrompt()
+                            OpenFluxSocks5Service.callback.reopenCaptchaPrompt()
+                        },
+                        modifier = Modifier.padding(top = 4.dp),
+                    ) {
+                        Text(stringResource(R.string.home_solve_check))
+                    }
+                }
 
                 Box(
                     modifier = Modifier.height(24.dp),
@@ -330,18 +349,28 @@ private fun ProfilePickerSheet(
     }
 }
 
-// TunnelStatus.Connected only means the VPN interface is up, not that the covert channel has finished connecting.
+// TunnelStatus.Connected only means the VPN interface is up, not that the covert channel has
+// finished connecting, so the label has to distinguish the two or it claims a tunnel that
+// carries nothing.
 @Composable
-private fun statusLabel(status: TunnelStatus, channelReady: Boolean, lastRetryDetail: String?): String = when {
+private fun statusLabel(
+    status: TunnelStatus,
+    channelReady: Boolean,
+    lastRetryDetail: String?,
+    captchaPending: Boolean,
+    captchaDialogShowing: Boolean,
+): String = when {
     status is TunnelStatus.Stopped -> stringResource(R.string.home_status_stopped)
-    // A doc_url created in Yandex's newer editor fails every retry with the same "balancer_url missing" error.
+    // A doc_url created in Yandex's newer editor fails every retry with the same "balancer_url missing".
     (status is TunnelStatus.Connecting || (status is TunnelStatus.Connected && !channelReady)) &&
         lastRetryDetail?.contains("balancer_url", ignoreCase = true) == true ->
         stringResource(R.string.home_status_wrong_editor_type)
+    status is TunnelStatus.Error -> stringResource(R.string.home_status_error, (status as TunnelStatus.Error).message)
+    captchaPending && !captchaDialogShowing -> stringResource(R.string.home_status_captcha_pending)
+    captchaPending -> stringResource(R.string.home_status_captcha_open)
     status is TunnelStatus.Connecting -> stringResource(R.string.home_status_connecting)
     status is TunnelStatus.Connected && !channelReady -> stringResource(R.string.home_status_connecting_channel)
     status is TunnelStatus.Connected -> stringResource(R.string.home_status_connected)
-    status is TunnelStatus.Error -> stringResource(R.string.home_status_error, (status as TunnelStatus.Error).message)
     else -> ""
 }
 

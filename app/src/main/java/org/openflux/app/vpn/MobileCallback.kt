@@ -80,7 +80,13 @@ class MobileCallback : Callback {
     private val _captchaDocUrl = MutableStateFlow<String?>(null)
     val captchaDocUrl: StateFlow<String?> = _captchaDocUrl
 
+    private var pendingCaptchaUrl: String? = null
     private var suppressedCaptchaUrl: String? = null
+
+    // Stays true while a check is unresolved, including after the dialog was dismissed, so the
+    // UI can offer to reopen it instead of only auto-showing it the first time.
+    private val _captchaPending = MutableStateFlow(false)
+    val captchaPending: StateFlow<Boolean> = _captchaPending
 
     fun dismissCaptchaPrompt() {
         suppressedCaptchaUrl = _captchaDocUrl.value
@@ -94,6 +100,12 @@ class MobileCallback : Callback {
     fun captchaSolved() {
         suppressedCaptchaUrl = _captchaDocUrl.value
         _captchaDocUrl.value = null
+    }
+
+    fun reopenCaptchaPrompt() {
+        val url = pendingCaptchaUrl ?: return
+        suppressedCaptchaUrl = null
+        _captchaDocUrl.value = url
     }
 
     private val _log = MutableStateFlow<List<TunnelLogEntry>>(emptyList())
@@ -113,6 +125,8 @@ class MobileCallback : Callback {
         if (status == "stopped" || status.startsWith("error:")) {
             _channelReady.value = false
             _captchaDocUrl.value = null
+            pendingCaptchaUrl = null
+            _captchaPending.value = false
         }
         appendLifecycleLog(status)
     }
@@ -129,9 +143,15 @@ class MobileCallback : Callback {
                 _channelReady.value = true
                 _lastRetryDetail.value = null
                 suppressedCaptchaUrl = null
+                pendingCaptchaUrl = null
+                _captchaPending.value = false
                 _captchaDocUrl.value = null
             }
-            "captcha_required" -> if (detail != suppressedCaptchaUrl) _captchaDocUrl.value = detail
+            "captcha_required" -> {
+                pendingCaptchaUrl = detail
+                _captchaPending.value = true
+                if (detail != suppressedCaptchaUrl) _captchaDocUrl.value = detail
+            }
         }
         val entry = when (code) {
             "connecting" -> TunnelLogEntry(
@@ -210,6 +230,8 @@ class MobileCallback : Callback {
         _channelReady.value = false
         _lastRetryDetail.value = null
         suppressedCaptchaUrl = null
+        pendingCaptchaUrl = null
+        _captchaPending.value = false
         _captchaDocUrl.value = null
         // The log is intentionally not cleared here.
     }
