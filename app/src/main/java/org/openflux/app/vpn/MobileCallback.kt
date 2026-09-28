@@ -80,7 +80,14 @@ class MobileCallback : Callback {
     private val _captchaDocUrl = MutableStateFlow<String?>(null)
     val captchaDocUrl: StateFlow<String?> = _captchaDocUrl
 
+    private var suppressedCaptchaUrl: String? = null
+
     fun dismissCaptchaPrompt() {
+        suppressedCaptchaUrl = _captchaDocUrl.value
+        _captchaDocUrl.value = null
+    }
+
+    fun clearCaptchaPrompt() {
         _captchaDocUrl.value = null
     }
 
@@ -116,9 +123,10 @@ class MobileCallback : Callback {
             "connected" -> {
                 _channelReady.value = true
                 _lastRetryDetail.value = null
+                suppressedCaptchaUrl = null
                 _captchaDocUrl.value = null
             }
-            "captcha_required" -> _captchaDocUrl.value = detail
+            "captcha_required" -> if (detail != suppressedCaptchaUrl) _captchaDocUrl.value = detail
         }
         val entry = when (code) {
             "connecting" -> TunnelLogEntry(
@@ -196,6 +204,7 @@ class MobileCallback : Callback {
         _stats.value = TrafficStats()
         _channelReady.value = false
         _lastRetryDetail.value = null
+        suppressedCaptchaUrl = null
         _captchaDocUrl.value = null
         // The log is intentionally not cleared here.
     }
