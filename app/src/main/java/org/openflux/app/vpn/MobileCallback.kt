@@ -91,6 +91,11 @@ class MobileCallback : Callback {
         _captchaDocUrl.value = null
     }
 
+    fun captchaSolved() {
+        suppressedCaptchaUrl = _captchaDocUrl.value
+        _captchaDocUrl.value = null
+    }
+
     private val _log = MutableStateFlow<List<TunnelLogEntry>>(emptyList())
     val log: StateFlow<List<TunnelLogEntry>> = _log
 
