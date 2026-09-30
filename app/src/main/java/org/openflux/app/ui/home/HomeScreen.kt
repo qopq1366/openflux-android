@@ -59,7 +59,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import mobile.Mobile
 import org.openflux.app.LocalOpenFluxApp
 import org.openflux.app.R
 import org.openflux.app.data.Profile
@@ -247,21 +246,6 @@ fun HomeScreen(
             }
         }
 
-        if (captchaUrl != null) {
-            CaptchaWebViewDialog(
-                docUrl = captchaUrl,
-                onDismiss = {
-                    OpenFluxVpnService.callback.dismissCaptchaPrompt()
-                    OpenFluxSocks5Service.callback.dismissCaptchaPrompt()
-                },
-                onSolved = { cookies ->
-                    if (runCatching { Mobile.provideCaptchaCookies(cookies) }.isSuccess) {
-                        OpenFluxVpnService.callback.captchaSolved()
-                        OpenFluxSocks5Service.callback.captchaSolved()
-                    }
-                },
-            )
-        }
     }
 }
 
