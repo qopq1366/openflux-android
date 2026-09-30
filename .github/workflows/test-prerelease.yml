@@ -54,7 +54,7 @@ jobs:
         run: |
           mkdir -p keystore
           STORE_PASSWORD="$(openssl rand -hex 16)"
-          KEY_PASSWORD="$(openssl rand -hex 16)"
+          KEY_PASSWORD="$STORE_PASSWORD"
           KEY_ALIAS="test$(openssl rand -hex 6)"
           keytool -genkeypair -storetype PKCS12 -keystore keystore/release.jks -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 3650 -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" -dname "CN=OpenFlux Test,O=OpenFlux,C=US"
           cat > keystore/keystore.properties <<EOF
