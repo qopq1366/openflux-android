@@ -31,7 +31,7 @@ jobs:
           go-version: "1.24"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android NDK
         run: sdkmanager "ndk;27.2.12479018"
