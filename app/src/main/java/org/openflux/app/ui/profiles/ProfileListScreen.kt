@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -129,7 +130,7 @@ fun ProfileListScreen(
         ) {
             if (state.profiles.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.profiles_empty))
+                    Text(stringResource(R.string.profiles_empty), textAlign = TextAlign.Center)
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {

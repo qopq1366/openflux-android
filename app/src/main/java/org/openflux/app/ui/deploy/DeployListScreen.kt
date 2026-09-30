@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -137,7 +138,7 @@ fun DeployListScreen(onAddServer: () -> Unit, onOpenServer: (String) -> Unit) {
 
             if (state.servers.isEmpty()) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.deploy_empty))
+                    Text(stringResource(R.string.deploy_empty), textAlign = TextAlign.Center)
                 }
             } else {
                 LazyColumn(Modifier.weight(1f)) {

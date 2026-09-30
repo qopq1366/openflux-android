@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
@@ -79,7 +80,7 @@ fun TunnelLogsScreen() {
         if (tab == 0) {
             if (entries.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.logs_empty))
+                    Text(stringResource(R.string.logs_empty), textAlign = TextAlign.Center)
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize().padding(top = 8.dp)) {
@@ -89,7 +90,7 @@ fun TunnelLogsScreen() {
         } else {
             if (rawEntries.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.logs_kernel_empty))
+                    Text(stringResource(R.string.logs_kernel_empty), textAlign = TextAlign.Center)
                 }
             } else {
                 SelectionContainer {

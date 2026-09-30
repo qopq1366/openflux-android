@@ -2,6 +2,7 @@ package org.openflux.app.ui.home
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -306,7 +308,7 @@ private fun ProfilePickerSheet(
                         .padding(horizontal = 12.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(background)
-                        .clickable(enabled = pendingId == null) {
+                        .clickable {
                             if (profile.id == activeProfileId) {
                                 onDismiss() // already active - nothing to animate, just close
                                 return@clickable
@@ -324,13 +326,13 @@ private fun ProfilePickerSheet(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(profile.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        AnimatedVisibility(visible = active, enter = fadeIn(), exit = fadeOut()) {
-                            Text(
-                                text = stringResource(R.string.profiles_active_badge),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
+                        val badgeAlpha by animateFloatAsState(if (active) 1f else 0f, label = "profileBadgeAlpha")
+                        Text(
+                            text = stringResource(R.string.profiles_active_badge),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.alpha(badgeAlpha),
+                        )
                     }
                     AnimatedVisibility(
                         visible = active,

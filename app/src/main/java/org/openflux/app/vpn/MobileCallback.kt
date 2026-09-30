@@ -225,7 +225,7 @@ class MobileCallback : Callback {
     }
 
     fun reset() {
-        _status.value = TunnelStatus.Stopped
+        _status.value = TunnelStatus.Connecting
         _stats.value = TrafficStats()
         _channelReady.value = false
         _lastRetryDetail.value = null
